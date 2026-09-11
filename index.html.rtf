@@ -1,0 +1,472 @@
+{\rtf1\ansi\ansicpg1252\cocoartf2870
+\cocoatextscaling0\cocoaplatform0{\fonttbl\f0\fmodern\fcharset0 CourierNewPSMT;}
+{\colortbl;\red255\green255\blue255;}
+{\*\expandedcolortbl;;}
+\margl1440\margr1440\vieww34000\viewh21460\viewkind0
+\pard\tx720\tx1440\tx2160\tx2880\tx3600\tx4320\tx5040\tx5760\tx6480\tx7200\tx7920\tx8640\pardirnatural\partightenfactor0
+
+\f0\fs24 \cf0 <!DOCTYPE html>\
+<html lang="en">\
+<head>\
+  <link rel="manifest" href="manifest.json">\
+  <meta name="theme-color" content="#0f172a">\
+  <meta name="mobile-web-app-capable" content="yes">\
+  <meta name="apple-mobile-web-app-capable" content="yes">\
+  <meta charset="UTF-8">\
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">\
+  <title>FleetKeep - Multi-Vehicle Maintenance Tracker</title>\
+  <!-- Tailwind CSS CDN -->\
+  <script src="https://cdn.tailwindcss.com"></script>\
+  <!-- Vue 3 CDN -->\
+  <script src="https://unpkg.com/vue@3/dist/vue.global.js"></script>\
+  <!-- Heroicons CDN for simple SVG icons -->\
+  <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">\
+</head>\
+\
+<body class="bg-slate-900 text-slate-100 min-h-screen font-sans antialiased">\
+  <div id="app" class="max-w-6xl mx-auto p-4 sm:p-6 lg:p-8">\
+\
+    <!-- Header -->\
+    <header class="flex flex-col sm:flex-row justify-between items-start sm:items-center pb-6 mb-8 border-b border-slate-800 gap-4">\
+      <div>\
+        <h1 class="text-3xl font-bold tracking-tight text-white flex items-center gap-3">\
+          <i class="fa-solid fa-wrench text-amber-500"></i> FleetKeep\
+        </h1>\
+        <p class="text-sm text-slate-400 mt-1">Multi-asset maintenance & dual-threshold service intervals</p>\
+      </div>\
+      <button @click="showAddVehicleModal = true" class="bg-amber-500 hover:bg-amber-400 text-slate-950 font-semibold px-4 py-2 rounded-lg transition shadow-md flex items-center gap-2">\
+        <i class="fa-solid fa-plus"></i> Add Vehicle\
+      </button>\
+    </header>\
+\
+    <!-- Main Content Layout -->\
+    <div class="grid grid-cols-1 lg:grid-cols-3 gap-8">\
+      \
+      <!-- Left Sidebar: Vehicle Selector Cards -->\
+      <section class="space-y-4">\
+        <h2 class="text-xs font-bold uppercase tracking-wider text-slate-400 mb-2">Your Garage</h2>\
+        <div v-if="vehicles.length === 0" class="p-6 bg-slate-800/50 rounded-xl border border-dashed border-slate-700 text-center text-slate-400">\
+          No vehicles logged yet. Add your first car, truck, or RV!\
+        </div>\
+\
+        <div \
+          v-for="v in vehicles" \
+          :key="v.id" \
+          @click="selectedVehicleId = v.id"\
+          :class="['p-4 rounded-xl border cursor-pointer transition-all duration-150 relative overflow-hidden', \
+                   selectedVehicleId === v.id ? 'bg-slate-800 border-amber-500 ring-1 ring-amber-500 shadow-lg' : 'bg-slate-800/40 border-slate-700/60 hover:border-slate-600']"\
+        >\
+          <div class="flex justify-between items-start">\
+            <div>\
+              <span class="inline-block px-2 py-0.5 text-xs font-semibold uppercase rounded bg-slate-700 text-slate-300 mb-2">\
+                \{\{ v.type \}\}\
+              </span>\
+              <h3 class="text-lg font-bold text-white leading-snug">\{\{ v.year \}\} \{\{ v.make \}\} \{\{ v.model \}\}</h3>\
+              <p class="text-xs text-slate-400 font-mono mt-0.5">VIN: \{\{ v.vin || 'N/A' \}\}</p>\
+            </div>\
+            <button @click.stop="deleteVehicle(v.id)" class="text-slate-500 hover:text-rose-400 p-1">\
+              <i class="fa-solid fa-trash-can text-sm"></i>\
+            </button>\
+          </div>\
+\
+          <div class="mt-4 pt-3 border-t border-slate-700/40 flex justify-between items-center text-sm">\
+            <span class="text-slate-400">Current Reading:</span>\
+            <span class="font-bold text-amber-400 font-mono">\{\{ Number(v.currentOdometer).toLocaleString() \}\} \{\{ v.metricUnit \}\}</span>\
+          </div>\
+        </div>\
+      </section>\
+\
+      <!-- Center & Right: Selected Vehicle Details & Records -->\
+      <main class="lg:col-span-2 space-y-6" v-if="activeVehicle">\
+        <!-- Vehicle Status Card & Quick Mileage Update -->\
+        <div class="bg-slate-800 rounded-2xl p-6 border border-slate-700">\
+          <div class="flex flex-col sm:flex-row justify-between items-start sm:items-center gap-4">\
+            <div>\
+              <h2 class="text-2xl font-black text-white">\{\{ activeVehicle.year \}\} \{\{ activeVehicle.make \}\} \{\{ activeVehicle.model \}\}</h2>\
+              <p class="text-slate-400 text-sm">Plate: \{\{ activeVehicle.plate || 'None' \}\}</p>\
+            </div>\
+\
+            <form @submit.prevent="updateOdometer" class="flex items-center gap-2">\
+              <div class="relative">\
+                <input \
+                  type="number" \
+                  v-model.number="odometerInput" \
+                  class="bg-slate-900 border border-slate-700 rounded-lg px-3 py-1.5 text-right font-mono text-white text-sm w-36 focus:outline-none focus:border-amber-500"\
+                  required\
+                />\
+                <span class="absolute right-2 top-1.5 text-xs text-slate-500 pointer-events-none">\{\{ activeVehicle.metricUnit \}\}</span>\
+              </div>\
+              <button type="submit" class="bg-slate-700 hover:bg-slate-600 text-white text-xs font-semibold px-3 py-2 rounded-lg transition">\
+                Update\
+              </button>\
+            </form>\
+          </div>\
+        </div>\
+\
+        <!-- Maintenance Status Tracker (Dual-threshold checklist) -->\
+        <div class="bg-slate-800 rounded-2xl p-6 border border-slate-700">\
+          <div class="flex justify-between items-center mb-4">\
+            <h3 class="text-lg font-bold text-white flex items-center gap-2">\
+              <i class="fa-solid fa-clock-rotate-left text-amber-500"></i> Service Schedule Health\
+            </h3>\
+            <button @click="showAddLogModal = true" class="bg-amber-500 hover:bg-amber-400 text-slate-950 text-xs font-bold px-3 py-1.5 rounded transition flex items-center gap-1.5">\
+              <i class="fa-solid fa-plus"></i> Log Service\
+            </button>\
+          </div>\
+\
+          <div class="space-y-3">\
+            <div \
+              v-for="sched in serviceSchedules" \
+              :key="sched.serviceName"\
+              class="p-4 rounded-xl bg-slate-900/60 border border-slate-700/60 flex flex-col sm:flex-row justify-between sm:items-center gap-3"\
+            >\
+              <div>\
+                <h4 class="font-bold text-white">\{\{ sched.serviceName \}\}</h4>\
+                <p class="text-xs text-slate-400">\
+                  Interval: every \{\{ sched.intervalMiles.toLocaleString() \}\} \{\{ activeVehicle.metricUnit \}\} or \{\{ sched.intervalMonths \}\} mos\
+                </p>\
+                <p class="text-xs text-slate-500 mt-1">\
+                  Last done: \{\{ sched.lastDate ? sched.lastDate : 'Never' \}\} \
+                  <span v-if="sched.lastOdo">(\{\{ Number(sched.lastOdo).toLocaleString() \}\} \{\{ activeVehicle.metricUnit \}\})</span>\
+                </p>\
+              </div>\
+\
+              <!-- Status Badge -->\
+              <div class="text-right flex sm:flex-col justify-between items-end">\
+                <span :class="['px-2.5 py-1 text-xs font-bold rounded-full uppercase tracking-wider', getStatusClass(sched.status)]">\
+                  \{\{ sched.status \}\}\
+                </span>\
+                <span class="text-xs text-slate-400 mt-1 font-mono">\
+                  \{\{ sched.remainingText \}\}\
+                </span>\
+              </div>\
+            </div>\
+          </div>\
+        </div>\
+\
+        <!-- History Ledger -->\
+        <div class="bg-slate-800 rounded-2xl p-6 border border-slate-700">\
+          <h3 class="text-lg font-bold text-white mb-4 flex items-center gap-2">\
+            <i class="fa-solid fa-receipt text-amber-500"></i> Completed Service Ledger\
+          </h3>\
+          <div v-if="activeLogs.length === 0" class="text-sm text-slate-400 italic">No maintenance history recorded for this asset.</div>\
+          <div class="overflow-x-auto" v-else>\
+            <table class="w-full text-left text-sm text-slate-300">\
+              <thead class="bg-slate-900/80 text-xs uppercase font-semibold text-slate-400">\
+                <tr>\
+                  <th class="p-3">Date</th>\
+                  <th class="p-3">Service</th>\
+                  <th class="p-3">Reading</th>\
+                  <th class="p-3">Cost</th>\
+                  <th class="p-3">Notes</th>\
+                </tr>\
+              </thead>\
+              <tbody class="divide-y divide-slate-700/60 font-mono text-xs">\
+                <tr v-for="log in activeLogs" :key="log.id" class="hover:bg-slate-750">\
+                  <td class="p-3 text-slate-200">\{\{ log.date \}\}</td>\
+                  <td class="p-3 font-sans font-semibold text-white">\{\{ log.serviceName \}\}</td>\
+                  <td class="p-3">\{\{ Number(log.odometer).toLocaleString() \}\} \{\{ activeVehicle.metricUnit \}\}</td>\
+                  <td class="p-3 text-emerald-400">$\{\{ Number(log.cost || 0).toFixed(2) \}\}</td>\
+                  <td class="p-3 font-sans text-slate-400">\{\{ log.notes || '\'97' \}\}</td>\
+                </tr>\
+              </tbody>\
+            </table>\
+          </div>\
+        </div>\
+\
+      </main>\
+\
+      <div v-else class="lg:col-span-2 flex flex-col items-center justify-center p-12 bg-slate-800/30 border border-slate-800 rounded-2xl text-slate-500">\
+        <i class="fa-solid fa-car-side text-4xl mb-3"></i>\
+        <p>Select or create a vehicle to view status and log maintenance.</p>\
+      </div>\
+    </div>\
+\
+    <!-- Modal: Add Vehicle -->\
+    <div v-if="showAddVehicleModal" class="fixed inset-0 bg-black/75 backdrop-blur-sm flex items-center justify-center p-4 z-50">\
+      <div class="bg-slate-800 border border-slate-700 p-6 rounded-2xl w-full max-w-md shadow-2xl">\
+        <h3 class="text-xl font-bold text-white mb-4">Register Asset</h3>\
+        <form @submit.prevent="createVehicle" class="space-y-4 text-sm">\
+          <div>\
+            <label class="block text-slate-400 mb-1">Asset Type</label>\
+            <select v-model="newVehicle.type" class="w-full bg-slate-900 border border-slate-700 rounded-lg p-2 text-white">\
+              <option value="Car / SUV">Car / SUV</option>\
+              <option value="Truck">Truck</option>\
+              <option value="RV / Travel Trailer">RV / Travel Trailer</option>\
+              <option value="Motorcycle">Motorcycle</option>\
+            </select>\
+          </div>\
+          <div class="grid grid-cols-3 gap-2">\
+            <div>\
+              <label class="block text-slate-400 mb-1">Year</label>\
+              <input type="number" v-model.number="newVehicle.year" required class="w-full bg-slate-900 border border-slate-700 rounded-lg p-2 text-white" />\
+            </div>\
+            <div class="col-span-2">\
+              <label class="block text-slate-400 mb-1">Make</label>\
+              <input type="text" v-model="newVehicle.make" placeholder="e.g. Ford, Toyota" required class="w-full bg-slate-900 border border-slate-700 rounded-lg p-2 text-white" />\
+            </div>\
+          </div>\
+          <div>\
+            <label class="block text-slate-400 mb-1">Model</label>\
+            <input type="text" v-model="newVehicle.model" placeholder="e.g. F-150, RAV4" required class="w-full bg-slate-900 border border-slate-700 rounded-lg p-2 text-white" />\
+          </div>\
+          <div class="grid grid-cols-2 gap-2">\
+            <div>\
+              <label class="block text-slate-400 mb-1">Current Reading</label>\
+              <input type="number" v-model.number="newVehicle.currentOdometer" required class="w-full bg-slate-900 border border-slate-700 rounded-lg p-2 text-white font-mono" />\
+            </div>\
+            <div>\
+              <label class="block text-slate-400 mb-1">Tracking Unit</label>\
+              <select v-model="newVehicle.metricUnit" class="w-full bg-slate-900 border border-slate-700 rounded-lg p-2 text-white">\
+                <option value="miles">Miles</option>\
+                <option value="hours">Hours (Engine)</option>\
+                <option value="km">Kilometers</option>\
+              </select>\
+            </div>\
+          </div>\
+          <div class="flex justify-end gap-3 pt-4 border-t border-slate-700">\
+            <button type="button" @click="showAddVehicleModal = false" class="px-4 py-2 text-slate-400 hover:text-white">Cancel</button>\
+            <button type="submit" class="bg-amber-500 hover:bg-amber-400 text-slate-950 font-bold px-4 py-2 rounded-lg">Save Asset</button>\
+          </div>\
+        </form>\
+      </div>\
+    </div>\
+\
+    <!-- Modal: Add Maintenance Log -->\
+    <div v-if="showAddLogModal" class="fixed inset-0 bg-black/75 backdrop-blur-sm flex items-center justify-center p-4 z-50">\
+      <div class="bg-slate-800 border border-slate-700 p-6 rounded-2xl w-full max-w-md shadow-2xl">\
+        <h3 class="text-xl font-bold text-white mb-4">Record Service Entry</h3>\
+        <form @submit.prevent="createLog" class="space-y-4 text-sm">\
+          <div>\
+            <label class="block text-slate-400 mb-1">Service Type</label>\
+            <input type="text" v-model="newLog.serviceName" placeholder="e.g. Synthetic Oil Change, Wheel Repack" required class="w-full bg-slate-900 border border-slate-700 rounded-lg p-2 text-white" />\
+          </div>\
+          <div class="grid grid-cols-2 gap-2">\
+            <div>\
+              <label class="block text-slate-400 mb-1">Date</label>\
+              <input type="date" v-model="newLog.date" required class="w-full bg-slate-900 border border-slate-700 rounded-lg p-2 text-white" />\
+            </div>\
+            <div>\
+              <label class="block text-slate-400 mb-1">Reading</label>\
+              <input type="number" v-model.number="newLog.odometer" required class="w-full bg-slate-900 border border-slate-700 rounded-lg p-2 text-white font-mono" />\
+            </div>\
+          </div>\
+          <div>\
+            <label class="block text-slate-400 mb-1">Total Cost ($)</label>\
+            <input type="number" step="0.01" v-model.number="newLog.cost" placeholder="0.00" class="w-full bg-slate-900 border border-slate-700 rounded-lg p-2 text-white font-mono" />\
+          </div>\
+          <div>\
+            <label class="block text-slate-400 mb-1">Notes / Parts Used</label>\
+            <textarea v-model="newLog.notes" rows="2" placeholder="e.g. Mobil 1 5W-30, OEM Filter #12345" class="w-full bg-slate-900 border border-slate-700 rounded-lg p-2 text-white"></textarea>\
+          </div>\
+          <div class="flex justify-end gap-3 pt-4 border-t border-slate-700">\
+            <button type="button" @click="showAddLogModal = false" class="px-4 py-2 text-slate-400 hover:text-white">Cancel</button>\
+            <button type="submit" class="bg-amber-500 hover:bg-amber-400 text-slate-950 font-bold px-4 py-2 rounded-lg">Save Record</button>\
+          </div>\
+        </form>\
+      </div>\
+    </div>\
+\
+  </div>\
+\
+  <script>\
+    const \{ createApp, ref, computed, watch \} = Vue;\
+\
+    createApp(\{\
+      setup() \{\
+        // Load initial state from LocalStorage or seed defaults\
+        const savedVehicles = localStorage.getItem('fleet_vehicles');\
+        const savedLogs = localStorage.getItem('fleet_logs');\
+\
+        const vehicles = ref(savedVehicles ? JSON.parse(savedVehicles) : [\
+          \{ id: '1', make: 'Ford', model: 'F-150', year: 2021, type: 'Truck', currentOdometer: 42350, metricUnit: 'miles' \},\
+          \{ id: '2', make: 'Grand Design', model: 'Reflection', year: 2023, type: 'RV / Travel Trailer', currentOdometer: 7200, metricUnit: 'miles' \}\
+        ]);\
+\
+        const logs = ref(savedLogs ? JSON.parse(savedLogs) : [\
+          \{ id: '101', vehicleId: '1', serviceName: 'Engine Oil & Filter', date: '2026-03-10', odometer: 38000, cost: 74.50, notes: 'Full Synthetic 5W-30' \},\
+          \{ id: '102', vehicleId: '1', serviceName: 'Tire Rotation', date: '2026-03-10', odometer: 38000, cost: 25.00, notes: 'Rotated front to back' \},\
+          \{ id: '103', vehicleId: '2', serviceName: 'Wheel Bearing Repack', date: '2025-08-15', odometer: 5000, cost: 180.00, notes: 'Inspected brakes and seals' \}\
+        ]);\
+\
+        const selectedVehicleId = ref(vehicles.value[0]?.id || null);\
+        const odometerInput = ref(0);\
+\
+        const showAddVehicleModal = ref(false);\
+        const showAddLogModal = ref(false);\
+\
+        const newVehicle = ref(\{\
+          type: 'Car / SUV',\
+          year: new Date().getFullYear(),\
+          make: '',\
+          model: '',\
+          currentOdometer: 0,\
+          metricUnit: 'miles'\
+        \});\
+\
+        const newLog = ref(\{\
+          serviceName: '',\
+          date: new Date().toISOString().split('T')[0],\
+          odometer: 0,\
+          cost: '',\
+          notes: ''\
+        \});\
+\
+        // Persist\
+        watch(vehicles, (v) => localStorage.setItem('fleet_vehicles', JSON.stringify(v)), \{ deep: true \});\
+        watch(logs, (l) => localStorage.setItem('fleet_logs', JSON.stringify(l)), \{ deep: true \});\
+\
+        const activeVehicle = computed(() => vehicles.value.find(v => v.id === selectedVehicleId.value));\
+\
+        watch(activeVehicle, (v) => \{\
+          if (v) odometerInput.value = v.currentOdometer;\
+        \}, \{ immediate: true \});\
+\
+        const activeLogs = computed(() => \{\
+          return logs.value\
+            .filter(l => l.vehicleId === selectedVehicleId.value)\
+            .sort((a, b) => new Date(b.date) - new Date(a.date));\
+        \});\
+\
+        // Default standard service intervals to check against\
+        const defaultIntervalRules = [\
+          \{ serviceName: 'Engine Oil & Filter', intervalMiles: 5000, intervalMonths: 6 \},\
+          \{ serviceName: 'Tire Rotation', intervalMiles: 6000, intervalMonths: 6 \},\
+          \{ serviceName: 'Brake Fluid Flush', intervalMiles: 30000, intervalMonths: 24 \},\
+          \{ serviceName: 'Wheel Bearing Repack', intervalMiles: 12000, intervalMonths: 12 \}\
+        ];\
+\
+        // Dual-trigger threshold evaluator\
+        const serviceSchedules = computed(() => \{\
+          if (!activeVehicle.value) return [];\
+          const currentOdo = activeVehicle.value.currentOdometer;\
+          const today = new Date();\
+\
+          return defaultIntervalRules.map(rule => \{\
+            // Find most recent log for this service\
+            const pastLogs = logs.value\
+              .filter(l => l.vehicleId === activeVehicle.value.id && l.serviceName.toLowerCase().includes(rule.serviceName.toLowerCase()))\
+              .sort((a, b) => new Date(b.date) - new Date(a.date));\
+\
+            const lastLog = pastLogs[0];\
+            const lastDate = lastLog ? lastLog.date : null;\
+            const lastOdo = lastLog ? lastLog.odometer : null;\
+\
+            let remainingMiles = null;\
+            let remainingDays = null;\
+            let status = 'DUE SOON';\
+            let remainingText = '';\
+\
+            if (lastOdo !== null && lastDate !== null) \{\
+              const targetOdo = lastOdo + rule.intervalMiles;\
+              remainingMiles = targetOdo - currentOdo;\
+\
+              const targetDate = new Date(lastDate);\
+              targetDate.setMonth(targetDate.getMonth() + rule.intervalMonths);\
+              remainingDays = Math.ceil((targetDate - today) / (1000 * 60 * 60 * 24));\
+\
+              if (remainingMiles <= 0 || remainingDays <= 0) \{\
+                status = 'OVERDUE';\
+                remainingText = remainingMiles <= 0 \
+                  ? `$\{Math.abs(remainingMiles).toLocaleString()\} $\{activeVehicle.value.metricUnit\} overdue` \
+                  : `$\{Math.abs(remainingDays)\} days overdue`;\
+              \} else if (remainingMiles < 1000 || remainingDays < 30) \{\
+                status = 'DUE SOON';\
+                remainingText = `$\{remainingMiles.toLocaleString()\} $\{activeVehicle.value.metricUnit\} or $\{remainingDays\}d left`;\
+              \} else \{\
+                status = 'OK';\
+                remainingText = `$\{remainingMiles.toLocaleString()\} $\{activeVehicle.value.metricUnit\} / $\{remainingDays\}d`;\
+              \}\
+            \} else \{\
+              status = 'NO RECORD';\
+              remainingText = 'No prior service found';\
+            \}\
+\
+            return \{\
+              ...rule,\
+              lastDate,\
+              lastOdo,\
+              status,\
+              remainingText\
+            \};\
+          \});\
+        \});\
+\
+        const updateOdometer = () => \{\
+          if (activeVehicle.value) \{\
+            activeVehicle.value.currentOdometer = odometerInput.value;\
+          \}\
+        \};\
+\
+        const createVehicle = () => \{\
+          const id = Date.now().toString();\
+          vehicles.value.push(\{ ...newVehicle.value, id \});\
+          selectedVehicleId.value = id;\
+          showAddVehicleModal.value = false;\
+          newVehicle.value = \{ type: 'Car / SUV', year: new Date().getFullYear(), make: '', model: '', currentOdometer: 0, metricUnit: 'miles' \};\
+        \};\
+\
+        const deleteVehicle = (id) => \{\
+          vehicles.value = vehicles.value.filter(v => v.id !== id);\
+          logs.value = logs.value.filter(l => l.vehicleId !== id);\
+          if (selectedVehicleId.value === id) \{\
+            selectedVehicleId.value = vehicles.value[0]?.id || null;\
+          \}\
+        \};\
+\
+        const createLog = () => \{\
+          logs.value.push(\{\
+            id: Date.now().toString(),\
+            vehicleId: selectedVehicleId.value,\
+            ...newLog.value\
+          \});\
+\
+          // If logged mileage is higher than current odometer, advance it automatically\
+          if (newLog.value.odometer > activeVehicle.value.currentOdometer) \{\
+            activeVehicle.value.currentOdometer = newLog.value.odometer;\
+            odometerInput.value = newLog.value.odometer;\
+          \}\
+\
+          showAddLogModal.value = false;\
+          newLog.value = \{ serviceName: '', date: new Date().toISOString().split('T')[0], odometer: activeVehicle.value.currentOdometer, cost: '', notes: '' \};\
+        \};\
+\
+        const getStatusClass = (status) => \{\
+          switch(status) \{\
+            case 'OVERDUE': return 'bg-rose-500/20 text-rose-400 border border-rose-500/30';\
+            case 'DUE SOON': return 'bg-amber-500/20 text-amber-300 border border-amber-500/30';\
+            case 'OK': return 'bg-emerald-500/20 text-emerald-400 border border-emerald-500/30';\
+            default: return 'bg-slate-700 text-slate-400';\
+          \}\
+        \};\
+\
+        return \{\
+          vehicles,\
+          selectedVehicleId,\
+          activeVehicle,\
+          activeLogs,\
+          odometerInput,\
+          showAddVehicleModal,\
+          showAddLogModal,\
+          newVehicle,\
+          newLog,\
+          serviceSchedules,\
+          updateOdometer,\
+          createVehicle,\
+          deleteVehicle,\
+          createLog,\
+          getStatusClass\
+        \};\
+      \}\
+    \}).mount('#app');\
+  </script>\
+  <script>\
+    if ('serviceWorker' in navigator) \{\
+      window.addEventListener('load', () => \{\
+        navigator.serviceWorker.register('./sw.js')\
+          .catch(err => console.log('SW registration failed: ', err));\
+      \});\
+    \}\
+  </script>\
+</body>\
+</html>}
