@@ -1,4 +1,4 @@
-const CACHE_NAME = 'fleetkeep-v1';
+const CACHE_NAME = 'fleetkeep-v2';
 const ASSETS = [
   './',
   './index.html',
