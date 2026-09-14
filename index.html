@@ -70,6 +70,20 @@
         <div>
           <span class="text-[10px] font-bold uppercase tracking-wider text-slate-400 block">{{ activeVehicle.type }}</span>
           <span class="text-lg font-bold text-white">{{ activeVehicle.model }}</span>
+          <div>
+  <span class="text-xs text-slate-400 block">{{ activeVehicle.type }}</span>
+  <div class="flex items-center gap-2">
+    <span class="text-lg font-bold text-white">{{ activeVehicle.model }}</span>
+    <button 
+      type="button" 
+      @click="if(confirm('Delete this vehicle?')) deleteVehicle(activeVehicle.id)" 
+      class="text-slate-500 hover:text-rose-400 p-1"
+      title="Delete Vehicle"
+    >
+      <i class="fa-solid fa-trash-can text-sm"></i>
+    </button>
+  </div>
+</div>
         </div>
         <form @submit.prevent="updateOdometer" class="flex gap-1.5">
           <input 
