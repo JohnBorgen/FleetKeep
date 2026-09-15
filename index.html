@@ -98,7 +98,7 @@
         </form>
       </div>
 
-      <!-- Service Health -->
+      <!-- Service Health Badges -->
       <div class="bg-slate-800/90 border border-slate-700 p-4 rounded-xl">
         <div class="flex justify-between items-center mb-3">
           <h2 class="text-sm font-bold text-white uppercase tracking-wider">Service Due Status</h2>
@@ -127,18 +127,26 @@
         </div>
       </div>
 
-      <!-- History Log -->
+      <!-- History Log with Edit & Delete Actions -->
       <div class="bg-slate-800/90 border border-slate-700 p-4 rounded-xl">
         <h2 class="text-sm font-bold text-white uppercase tracking-wider mb-3">History</h2>
         <div v-if="activeLogs.length === 0" class="text-xs text-slate-500 italic">No records found.</div>
         <div class="space-y-2" v-else>
-          <div v-for="log in activeLogs" :key="log.id" class="p-2.5 bg-slate-900/50 border border-slate-800 rounded text-xs flex justify-between items-start">
-            <div>
+          <div v-for="log in activeLogs" :key="log.id" class="p-2.5 bg-slate-900/50 border border-slate-800 rounded text-xs flex justify-between items-start gap-2">
+            <div class="flex-1">
               <span class="font-bold text-white block">{{ log.serviceName }}</span>
               <span class="text-slate-400 text-[10px] font-mono">{{ log.date }} • {{ Number(log.odometer).toLocaleString() }} {{ activeVehicle.metricUnit }}</span>
               <p v-if="log.notes" class="text-slate-400 text-[11px] mt-1">{{ log.notes }}</p>
             </div>
-            <span class="text-emerald-400 font-mono font-bold">${{ Number(log.cost || 0).toFixed(2) }}</span>
+            <div class="flex items-center gap-2 shrink-0">
+              <span class="text-emerald-400 font-mono font-bold">${{ Number(log.cost || 0).toFixed(2) }}</span>
+              <button @click="openEditLog(log)" class="text-slate-500 hover:text-amber-400 p-1" title="Edit Log">
+                <i class="fa-solid fa-pen text-xs"></i>
+              </button>
+              <button @click="deleteLog(log.id)" class="text-slate-500 hover:text-rose-400 p-1" title="Delete Log">
+                <i class="fa-solid fa-trash-can text-xs"></i>
+              </button>
+            </div>
           </div>
         </div>
       </div>
@@ -225,11 +233,47 @@
         </form>
       </div>
     </div>
+
+    <!-- Modal: Edit Log -->
+    <div v-if="showEditLogModal" class="fixed inset-0 bg-black/80 flex items-end sm:items-center justify-center p-4 z-50">
+      <div class="bg-slate-800 border border-slate-700 p-5 rounded-t-2xl sm:rounded-2xl w-full max-w-sm">
+        <h3 class="text-base font-bold text-white mb-3">Edit Service Entry</h3>
+        <form @submit.prevent="updateLog" class="space-y-3 text-xs">
+          <div>
+            <label class="block text-slate-400 mb-1">Service Type</label>
+            <input type="text" v-model="editLogData.serviceName" required class="w-full bg-slate-900 border border-slate-700 rounded p-2 text-white" />
+          </div>
+          <div class="grid grid-cols-2 gap-2">
+            <div>
+              <label class="block text-slate-400 mb-1">Date</label>
+              <input type="date" v-model="editLogData.date" required class="w-full bg-slate-900 border border-slate-700 rounded p-2 text-white" />
+            </div>
+            <div>
+              <label class="block text-slate-400 mb-1">Reading</label>
+              <input type="number" v-model.number="editLogData.odometer" required class="w-full bg-slate-900 border border-slate-700 rounded p-2 text-white font-mono" />
+            </div>
+          </div>
+          <div>
+            <label class="block text-slate-400 mb-1">Cost ($)</label>
+            <input type="number" step="0.01" v-model.number="editLogData.cost" class="w-full bg-slate-900 border border-slate-700 rounded p-2 text-white font-mono" />
+          </div>
+          <div>
+            <label class="block text-slate-400 mb-1">Notes</label>
+            <textarea v-model="editLogData.notes" rows="2" class="w-full bg-slate-900 border border-slate-700 rounded p-2 text-white"></textarea>
+          </div>
+          <div class="flex justify-end gap-2 pt-2 border-t border-slate-700">
+            <button type="button" @click="showEditLogModal = false" class="px-3 py-2 text-slate-400">Cancel</button>
+            <button type="submit" class="bg-amber-500 text-slate-950 font-bold px-4 py-2 rounded">Update Record</button>
+          </div>
+        </form>
+      </div>
+    </div>
+
   </div>
 
   <script>
     // --- GOOGLE DRIVE CONFIGURATION ---
-    const GOOGLE_CLIENT_ID = '951783528284-7ig58os937vo2i5n2qd9uoj610i6hug9.apps.googleusercontent.com';
+    const GOOGLE_CLIENT_ID = 'YOUR_GOOGLE_CLIENT_ID_HERE.apps.googleusercontent.com';
     const DRIVE_FILE_NAME = 'fleetkeep_backup.json';
 
     if ('serviceWorker' in navigator) {
@@ -256,6 +300,7 @@
         const odometerInput = ref(0);
         const showAddVehicleModal = ref(false);
         const showAddLogModal = ref(false);
+        const showEditLogModal = ref(false);
 
         const isDriveConnected = ref(!!sessionStorage.getItem('gdrive_token'));
         const isSyncing = ref(false);
@@ -264,6 +309,7 @@
 
         const newVehicle = ref({ type: 'Truck', year: new Date().getFullYear(), make: '', model: '', currentOdometer: 0, metricUnit: 'miles' });
         const newLog = ref({ serviceName: '', date: new Date().toISOString().split('T')[0], odometer: 0, cost: '', notes: '' });
+        const editLogData = ref({ id: '', serviceName: '', date: '', odometer: 0, cost: '', notes: '' });
 
         const persistLocal = () => {
           localStorage.setItem('fleet_vehicles', JSON.stringify(vehicles.value));
@@ -484,6 +530,31 @@
           newLog.value = { serviceName: '', date: new Date().toISOString().split('T')[0], odometer: activeVehicle.value.currentOdometer, cost: '', notes: '' };
         };
 
+        // --- EDIT & DELETE LOG FUNCTIONS ---
+        const openEditLog = (log) => {
+          editLogData.value = { ...log };
+          showEditLogModal.value = true;
+        };
+
+        const updateLog = () => {
+          const index = logs.value.findIndex(l => l.id === editLogData.value.id);
+          if (index !== -1) {
+            logs.value[index] = { ...editLogData.value };
+            // If the edited log's mileage is higher than current odometer, auto-advance the odometer
+            if (editLogData.value.odometer > activeVehicle.value.currentOdometer) {
+              activeVehicle.value.currentOdometer = editLogData.value.odometer;
+              odometerInput.value = editLogData.value.odometer;
+            }
+          }
+          showEditLogModal.value = false;
+        };
+
+        const deleteLog = (logId) => {
+          if (window.confirm('Delete this service record?')) {
+            logs.value = logs.value.filter(l => l.id !== logId);
+          }
+        };
+
         const getStatusClass = (status) => {
           switch(status) {
             case 'OVERDUE': return 'bg-rose-500/20 text-rose-400 border border-rose-500/30';
@@ -495,8 +566,9 @@
 
         return {
           vehicles, selectedVehicleId, activeVehicle, activeLogs, odometerInput,
-          showAddVehicleModal, showAddLogModal, newVehicle, newLog,
-          serviceSchedules, updateOdometer, createVehicle, deleteVehicle, confirmDelete, createLog, getStatusClass,
+          showAddVehicleModal, showAddLogModal, showEditLogModal, newVehicle, newLog, editLogData,
+          serviceSchedules, updateOdometer, createVehicle, deleteVehicle, confirmDelete, createLog,
+          openEditLog, updateLog, deleteLog, getStatusClass,
           isDriveConnected, isSyncing, syncStatusMessage, initiateDriveAuth, disconnectDrive, manualSync
         };
       }
